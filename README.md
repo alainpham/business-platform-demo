@@ -11,6 +11,8 @@
     - [business-hub](#business-hub)
     - [notification-service](#notification-service)
     - [email](#email)
+    - [sms](#sms)
+    - [k6 load testing](#k6-load-testing)
 
 # business platform demo
 
@@ -143,11 +145,14 @@ export TEMPO_URL=tempo-eu-west-0.grafana.net:443
 export TEMPO_USR=xxxxx
 export TEMPO_KEY=xxxxx
 
+export CONTAINER_REGISTRY=otel
+export PROJECT_ARTIFACTID=opentelemetry-collector-contrib
+export PROJECT_VERSION=0.96.0
+
 kubectl create ns agents
 
 wget -O /tmp/otelcol.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/otelcol/otelcol.yaml
 envsubst < /tmp/otelcol.yaml | kubectl -n agents apply -f -
-
 ```
 
 ### broker
@@ -221,4 +226,34 @@ wget -O /tmp/message-consumer.yaml https://raw.githubusercontent.com/alainpham/b
 envsubst < /tmp/message-consumer.yaml | kubectl apply -n business-platform  -f -
 
 envsubst < /tmp/message-consumer.yaml | kubectl delete -n business-platform  -f -
+```
+
+### sms
+
+```bash
+export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
+export PROJECT_ARTIFACTID=message-consumer
+export APPLICATION_NAME=sms
+export PROJECT_VERSION=1.0-SNAPSHOT
+export CONTAINER_REGISTRY=alainpham
+
+wget -O /tmp/message-consumer.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/message-consumer/src/main/kube/deploy.envsubst.yaml
+envsubst < /tmp/message-consumer.yaml | kubectl apply -n business-platform  -f -
+
+envsubst < /tmp/message-consumer.yaml | kubectl delete -n business-platform  -f -
+```
+
+### k6 load testing
+
+```bash
+export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
+export CONTAINER_REGISTRY=grafana
+export PROJECT_ARTIFACTID=k6
+export PROJECT_VERSION=0.49.0
+export BASE_URL=https://business-hub.yourowndomain.duckdns.org
+
+wget -O /tmp/k6.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/k6/k6.yaml
+envsubst < /tmp/k6.yaml | kubectl apply -n business-platform  -f -
+
+envsubst < /tmp/k6.yaml | kubectl delete -n business-platform  -f -
 ```

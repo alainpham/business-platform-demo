@@ -63,10 +63,14 @@ metadata:
     component: otel-collector
 spec:
   ports:
-  - name: otlp-grpc
-    port: 4317
-    protocol: TCP
-    targetPort: 4317
+    - name: otlp-grpc
+      port: 4317
+      protocol: TCP
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      protocol: TCP
+      targetPort: 4318
   selector:
     component: otel-collector
 ---
@@ -92,11 +96,12 @@ spec:
         component: otel-collector
     spec:
       containers:
-      - image: otel/opentelemetry-collector-contrib:0.89.0
+      - image: "${CONTAINER_REGISTRY}/${PROJECT_ARTIFACTID}:${PROJECT_VERSION}"
         name: otel-collector
         ports:
-        - containerPort: 4317
-        - containerPort: 13133
+          - containerPort: 4317
+          - containerPort: 4318
+          - containerPort: 13133
         livenessProbe:
           failureThreshold: 5
           httpGet:
