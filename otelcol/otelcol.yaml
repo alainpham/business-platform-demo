@@ -12,6 +12,7 @@ data:
       otlp:
         protocols:
           grpc:
+          http:
     exporters:
       otlp:
         endpoint: ${TEMPO_URL}
