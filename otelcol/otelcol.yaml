@@ -1,0 +1,135 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-conf
+  labels:
+    app: opentelemetry
+    component: otel-collector-conf
+data:
+  otel-collector-config: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+    exporters:
+      otlp:
+        endpoint: ${TEMPO_URL}
+        tls:
+          insecure: false
+        auth:
+          authenticator: basicauth/traces
+      loki:
+        endpoint: ${LOKI_URL}
+        auth:
+          authenticator: basicauth/logs
+      prometheusremotewrite:
+        endpoint: ${MIMIR_URL}
+        auth:
+          authenticator: basicauth/metrics
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [otlp]
+        metrics:
+          receivers: [otlp]
+          exporters: [prometheusremotewrite]
+        logs:
+          receivers: [otlp]
+          exporters: [loki]
+      extensions: [basicauth/traces, basicauth/metrics, basicauth/logs, health_check]
+    extensions:
+      health_check:
+      basicauth/traces:
+        client_auth:
+          username: "${TEMPO_USR}"
+          password: "${TEMPO_KEY}"
+      basicauth/metrics:
+        client_auth:
+          username: "${MIMIR_USR}"
+          password: "${MIMIR_KEY}"
+      basicauth/logs:
+        client_auth:
+          username: "${LOKI_USR}"
+          password: "${LOKI_KEY}"   
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  labels:
+    app: opentelemetry
+    component: otel-collector
+spec:
+  ports:
+  - name: otlp-grpc
+    port: 4317
+    protocol: TCP
+    targetPort: 4317
+  selector:
+    component: otel-collector
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  labels:
+    app: opentelemetry
+    component: otel-collector
+spec:
+  selector:
+    matchLabels:
+      app: opentelemetry
+      component: otel-collector
+  minReadySeconds: 5
+  progressDeadlineSeconds: 120
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: opentelemetry
+        component: otel-collector
+    spec:
+      containers:
+      - image: otel/opentelemetry-collector-contrib:0.89.0
+        name: otel-collector
+        ports:
+        - containerPort: 4317
+        - containerPort: 13133
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /
+            port: 13133
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: 13133
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        env:
+          - name: MY_POD_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+        volumeMounts:
+        - name: otel-collector-config-vol
+          mountPath: /etc/otelcol-contrib/
+      volumes:
+        - configMap:
+            name: otel-collector-conf
+            items:
+              - key: otel-collector-config
+                path: config.yaml
+          name: otel-collector-config-vol

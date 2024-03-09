@@ -5,6 +5,7 @@
   - [run demo on kubernetes](#run-demo-on-kubernetes)
     - [Generate a domain name and wildcard certificates with Letsencrypt](#generate-a-domain-name-and-wildcard-certificates-with-letsencrypt)
     - [Create ingress router](#create-ingress-router)
+  - [Deploy OTEL Collector sending data to Grafana Cloud](#deploy-otel-collector-sending-data-to-grafana-cloud)
     - [broker](#broker)
     - [availability-service](#availability-service)
     - [business-hub](#business-hub)
@@ -125,6 +126,27 @@ envsubst < /tmp/ingresslb.yaml | kubectl -n ingress-nginx apply -f -
 # alternative ingress with hostport on non cloud instances
 wget -O /tmp/ingress.yaml https://raw.githubusercontent.com/alainpham/dev-environment/master/workstation-installation/templates/ingress-hostport-notoleration.yaml
 envsubst < /tmp/ingress.yaml | kubectl -n ingress-nginx apply -f -
+
+```
+
+## Deploy OTEL Collector sending data to Grafana Cloud
+```bash
+export MIMIR_URL=https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push
+export MIMIR_USR=xxxxx
+export MIMIR_KEY=xxxxx
+
+export LOKI_URL=https://logs-prod-eu-west-0.grafana.net/loki/api/v1/push
+export LOKI_USR=xxxxx
+export LOKI_KEY=xxxxx
+
+export TEMPO_URL=tempo-eu-west-0.grafana.net:443
+export TEMPO_USR=xxxxx
+export TEMPO_KEY=xxxxx
+
+kubectl create ns agents
+
+wget -O /tmp/otelcol.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/otelcol/otelcol.yaml
+envsubst < /tmp/otelcol.yaml | kubectl -n agents apply -f -
 
 ```
 
