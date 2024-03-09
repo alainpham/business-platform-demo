@@ -5,6 +5,11 @@
   - [run demo on kubernetes](#run-demo-on-kubernetes)
     - [Generate a domain name and wildcard certificates with Letsencrypt](#generate-a-domain-name-and-wildcard-certificates-with-letsencrypt)
     - [Create ingress router](#create-ingress-router)
+    - [broker](#broker)
+    - [availability-service](#availability-service)
+    - [business-hub](#business-hub)
+    - [notification-service](#notification-service)
+    - [email](#email)
 
 # business platform demo
 
@@ -39,28 +44,28 @@ export PROJECT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -Dfor
 docker run --rm -d --net mainnet \
     -p 8080:8080 \
     -e OTEL_JAVAAGENT_ENABLED="true" \
-    --name business-hub business-hub:${PROJECT_VERSION}
+    --name business-hub alainpham/business-hub:${PROJECT_VERSION}
     
 
 docker run --rm -d --net mainnet \
     -e OTEL_JAVAAGENT_ENABLED="true" \
-    --name availability-service availability-service:${PROJECT_VERSION}
+    --name availability-service alainpham/availability-service:${PROJECT_VERSION}
     
 docker run --rm -d --net mainnet \
     -e OTEL_JAVAAGENT_ENABLED="true" \
-    --name notification-service notification-service:${PROJECT_VERSION}
+    --name notification-service alainpham/notification-service:${PROJECT_VERSION}
 
 docker run --rm -d --net mainnet \
     -e OTEL_JAVAAGENT_ENABLED="true" \
     -e APP_QUEUE="email" \
     -e OTEL_RESOURCE_ATTRIBUTES=service.name=email,service.namespace=email-ns,service.instance.id=email-cnt,service.version=${PROJECT_VERSION} \
-    --name email message-consumer:${PROJECT_VERSION}
+    --name email alainpham/message-consumer:${PROJECT_VERSION}
 
 docker run --rm -d --net mainnet \
     -e OTEL_JAVAAGENT_ENABLED="true" \
     -e APP_QUEUE="sms" \
     -e OTEL_RESOURCE_ATTRIBUTES=service.name=sms,service.namespace=sms-ns,service.instance.id=sms-cnt,service.version=${PROJECT_VERSION} \
-    --name sms message-consumer:${PROJECT_VERSION}
+    --name sms alainpham/message-consumer:${PROJECT_VERSION}
 ```
 
 ## run demo on kubernetes
@@ -112,8 +117,7 @@ kubectl -n ingress-nginx create  secret tls nginx-ingress-tls  --key="$(pwd)/sen
 export NGINX_INGRESS_VERSION=1.10.0
 export NGINX_INGRESS_KUBE_WEBHOOK_CERTGEN_VERSION=v1.4.0
 
-#ingress LoadBalancer
-
+#ingress with LoadBalancer
 wget -O /tmp/ingresslb.yaml https://raw.githubusercontent.com/alainpham/dev-environment/master/workstation-installation/templates/ingress-loadbalancer-notoleration.yaml
 envsubst < /tmp/ingresslb.yaml | kubectl -n ingress-nginx apply -f -
 
@@ -124,3 +128,75 @@ envsubst < /tmp/ingress.yaml | kubectl -n ingress-nginx apply -f -
 
 ```
 
+### broker
+
+```bash
+export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
+export CONTAINER_REGISTRY=apache
+export PROJECT_ARTIFACTID=activemq-artemis
+export PROJECT_VERSION=2.32.0
+
+kubectl create ns business-platform
+
+wget -O /tmp/broker.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/broker/broker.envsubst.yaml
+envsubst < /tmp/broker.yaml | kubectl apply -n business-platform -f -
+
+envsubst < /tmp/broker.yaml | kubectl delete -n business-platform -f -
+```
+
+### availability-service
+
+```bash
+export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
+export PROJECT_ARTIFACTID=availability-service
+export PROJECT_VERSION=1.0-SNAPSHOT
+export CONTAINER_REGISTRY=alainpham
+
+wget -O /tmp/availability-service.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/availability-service/src/main/kube/deploy.envsubst.yaml
+envsubst < /tmp/availability-service.yaml | kubectl apply -n business-platform -f -
+
+envsubst < /tmp/availability-service.yaml | kubectl delete -n business-platform  -f -
+```
+
+### business-hub
+
+```bash
+export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
+export PROJECT_ARTIFACTID=business-hub
+export PROJECT_VERSION=1.0-SNAPSHOT
+export CONTAINER_REGISTRY=alainpham
+
+wget -O /tmp/business-hub.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/business-hub/src/main/kube/deploy.envsubst.yaml
+envsubst < /tmp/business-hub.yaml | kubectl apply -n business-platform  -f -
+
+envsubst < /tmp/business-hub.yaml | kubectl delete -n business-platform  -f -
+```
+
+### notification-service
+
+```bash
+export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
+export PROJECT_ARTIFACTID=notification-service
+export PROJECT_VERSION=1.0-SNAPSHOT
+export CONTAINER_REGISTRY=alainpham
+
+wget -O /tmp/notification-service.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/notification-service/src/main/kube/deploy.envsubst.yaml
+envsubst < /tmp/notification-service.yaml | kubectl apply -n business-platform  -f -
+
+envsubst < /tmp/notification-service.yaml | kubectl delete -n business-platform  -f -
+```
+
+### email
+
+```bash
+export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
+export PROJECT_ARTIFACTID=message-consumer
+export APPLICATION_NAME=email
+export PROJECT_VERSION=1.0-SNAPSHOT
+export CONTAINER_REGISTRY=alainpham
+
+wget -O /tmp/message-consumer.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/message-consumer/src/main/kube/deploy.envsubst.yaml
+envsubst < /tmp/message-consumer.yaml | kubectl apply -n business-platform  -f -
+
+envsubst < /tmp/message-consumer.yaml | kubectl delete -n business-platform  -f -
+```

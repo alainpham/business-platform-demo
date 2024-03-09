@@ -3,21 +3,21 @@
 kind: Secret
 apiVersion: v1
 metadata:
-  name: "${PROJECT_ARTIFACTID}-prop-secret"
+  name: "${APPLICATION_NAME}-prop-secret"
   labels:
-    app.kubernetes.io/name: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/component: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/part-of: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/instance: "${PROJECT_ARTIFACTID}-main"
+    app.kubernetes.io/name: "${APPLICATION_NAME}"
+    app.kubernetes.io/component: "${APPLICATION_NAME}"
+    app.kubernetes.io/part-of: "${APPLICATION_NAME}"
+    app.kubernetes.io/instance: "${APPLICATION_NAME}-main"
     app.kubernetes.io/version: "${PROJECT_VERSION}"
 type: Opaque
 stringData: 
   application.properties: |
-    spring.application.name=${PROJECT_ARTIFACTID}
+    spring.application.name=${APPLICATION_NAME}
     logging.config=classpath:logback.xml
 
     # the options from org.apache.camel.spring.boot.CamelConfigurationProperties can be configured here
-    camel.springboot.name=${PROJECT_ARTIFACTID}
+    camel.springboot.name=${APPLICATION_NAME}
 
     # lets listen on all ports to ensure we can be invoked from the pod IP
     server.address=0.0.0.0
@@ -53,12 +53,12 @@ stringData:
 kind: Secret
 apiVersion: v1
 metadata:
-  name: "${PROJECT_ARTIFACTID}-tls-secret"
+  name: "${APPLICATION_NAME}-tls-secret"
   labels:
-    app.kubernetes.io/name: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/component: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/part-of: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/instance: "${PROJECT_ARTIFACTID}-main"
+    app.kubernetes.io/name: "${APPLICATION_NAME}"
+    app.kubernetes.io/component: "${APPLICATION_NAME}"
+    app.kubernetes.io/part-of: "${APPLICATION_NAME}"
+    app.kubernetes.io/instance: "${APPLICATION_NAME}-main"
     app.kubernetes.io/version: "${PROJECT_VERSION}"
 type: Opaque
 data:
@@ -71,20 +71,20 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app.kubernetes.io/name: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/component: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/part-of: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/instance: "${PROJECT_ARTIFACTID}-main"
+    app.kubernetes.io/name: "${APPLICATION_NAME}"
+    app.kubernetes.io/component: "${APPLICATION_NAME}"
+    app.kubernetes.io/part-of: "${APPLICATION_NAME}"
+    app.kubernetes.io/instance: "${APPLICATION_NAME}-main"
     app.kubernetes.io/version: "${PROJECT_VERSION}"
-  name: "${PROJECT_ARTIFACTID}"
+  name: "${APPLICATION_NAME}"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: "${PROJECT_ARTIFACTID}"
-      app.kubernetes.io/component: "${PROJECT_ARTIFACTID}"
-      app.kubernetes.io/part-of: "${PROJECT_ARTIFACTID}"
-      app.kubernetes.io/instance: "${PROJECT_ARTIFACTID}-main"
+      app.kubernetes.io/name: "${APPLICATION_NAME}"
+      app.kubernetes.io/component: "${APPLICATION_NAME}"
+      app.kubernetes.io/part-of: "${APPLICATION_NAME}"
+      app.kubernetes.io/instance: "${APPLICATION_NAME}-main"
       app.kubernetes.io/version: "${PROJECT_VERSION}"
   template:
     metadata:
@@ -93,14 +93,14 @@ spec:
         prometheus.io/port: "8081"
         prometheus.io/path:  "/actuator/prometheus"
       labels:
-        app.kubernetes.io/name: "${PROJECT_ARTIFACTID}"
-        app.kubernetes.io/component: "${PROJECT_ARTIFACTID}"
-        app.kubernetes.io/part-of: "${PROJECT_ARTIFACTID}"
-        app.kubernetes.io/instance: "${PROJECT_ARTIFACTID}-main"
+        app.kubernetes.io/name: "${APPLICATION_NAME}"
+        app.kubernetes.io/component: "${APPLICATION_NAME}"
+        app.kubernetes.io/part-of: "${APPLICATION_NAME}"
+        app.kubernetes.io/instance: "${APPLICATION_NAME}-main"
         app.kubernetes.io/version: "${PROJECT_VERSION}"
     spec:
       containers:
-      - name: ${PROJECT_ARTIFACTID}
+      - name: ${APPLICATION_NAME}
         image: "${CONTAINER_REGISTRY}/${PROJECT_ARTIFACTID}:${PROJECT_VERSION}"
         imagePullPolicy: "Always"
         env:
@@ -112,14 +112,16 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: APP_QUEUE
+            value: ${APPLICATION_NAME}
           - name: APPLICATION_NAME
-            value: ${PROJECT_ARTIFACTID}
+            value: ${APPLICATION_NAME}
           - name: OTEL_EXPORTER_OTLP_ENDPOINT
             value: "http://otel-collector.agents.svc.cluster.local:4318"
           - name: OTEL_JAVAAGENT_ENABLED
             value: "true"
           - name: OTEL_RESOURCE_ATTRIBUTES
-            value: "service.name=${PROJECT_ARTIFACTID},service.namespace=$(POD_NAMESPACE),service.instance.id=$(POD_NAME),service.version=${PROJECT_VERSION}"
+            value: "service.name=${APPLICATION_NAME},service.namespace=$(POD_NAMESPACE),service.instance.id=$(POD_NAME),service.version=${PROJECT_VERSION}"
         livenessProbe:
           httpGet:
             path: "/actuator/health"
@@ -159,22 +161,22 @@ spec:
         - name: "tls-secret-volume"
           secret:
             defaultMode: 420
-            secretName: "${PROJECT_ARTIFACTID}-tls-secret"
+            secretName: "${APPLICATION_NAME}-tls-secret"
         - name: "prop-secret-volume"
           secret:
             defaultMode: 420
-            secretName: "${PROJECT_ARTIFACTID}-prop-secret"
+            secretName: "${APPLICATION_NAME}-prop-secret"
 ---
 apiVersion: "v1"
 kind: "Service"
 metadata:
   labels:
-    app.kubernetes.io/name: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/component: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/part-of: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/instance: "${PROJECT_ARTIFACTID}-main"
+    app.kubernetes.io/name: "${APPLICATION_NAME}"
+    app.kubernetes.io/component: "${APPLICATION_NAME}"
+    app.kubernetes.io/part-of: "${APPLICATION_NAME}"
+    app.kubernetes.io/instance: "${APPLICATION_NAME}-main"
     app.kubernetes.io/version: "${PROJECT_VERSION}"
-  name: "${PROJECT_ARTIFACTID}"
+  name: "${APPLICATION_NAME}"
 spec:
   type: ClusterIP
   ports:
@@ -183,21 +185,21 @@ spec:
     protocol: "TCP"
     targetPort: 8080
   selector:
-    app.kubernetes.io/name: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/component: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/part-of: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/instance: "${PROJECT_ARTIFACTID}-main"
+    app.kubernetes.io/name: "${APPLICATION_NAME}"
+    app.kubernetes.io/component: "${APPLICATION_NAME}"
+    app.kubernetes.io/part-of: "${APPLICATION_NAME}"
+    app.kubernetes.io/instance: "${APPLICATION_NAME}-main"
     app.kubernetes.io/version: "${PROJECT_VERSION}"
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ${PROJECT_ARTIFACTID}
+  name: ${APPLICATION_NAME}
   labels:
-    app.kubernetes.io/name: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/component: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/part-of: "${PROJECT_ARTIFACTID}"
-    app.kubernetes.io/instance: "${PROJECT_ARTIFACTID}-main"
+    app.kubernetes.io/name: "${APPLICATION_NAME}"
+    app.kubernetes.io/component: "${APPLICATION_NAME}"
+    app.kubernetes.io/part-of: "${APPLICATION_NAME}"
+    app.kubernetes.io/instance: "${APPLICATION_NAME}-main"
     app.kubernetes.io/version: "${PROJECT_VERSION}"
   annotations:
     nginx.ingress.kubernetes.io/ssl-passthrough: "false"
@@ -205,14 +207,14 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   rules:
-  - host: ${PROJECT_ARTIFACTID}.${KUBE_INGRESS_ROOT_DOMAIN}
+  - host: ${APPLICATION_NAME}.${KUBE_INGRESS_ROOT_DOMAIN}
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: ${PROJECT_ARTIFACTID}
+            name: ${APPLICATION_NAME}
             port:
               number: 8080
 ---
