@@ -1,11 +1,16 @@
 
+- [Environement variables](#environement-variables)
 - [business platform demo](#business-platform-demo)
   - [architecture diagram](#architecture-diagram)
   - [run the demo with docker](#run-the-demo-with-docker)
+    - [Optionally create a dedicated network](#optionally-create-a-dedicated-network)
+    - [Launch broker](#launch-broker)
+    - [Launch apps](#launch-apps)
+    - [Install and launch Grafana Alloy on Linux Host](#install-and-launch-grafana-alloy-on-linux-host)
   - [run demo on kubernetes](#run-demo-on-kubernetes)
     - [Generate a domain name and wildcard certificates with Letsencrypt](#generate-a-domain-name-and-wildcard-certificates-with-letsencrypt)
     - [Create ingress router](#create-ingress-router)
-  - [Deploy OTEL Collector sending data to Grafana Cloud](#deploy-otel-collector-sending-data-to-grafana-cloud)
+    - [Deploy OTEL Collector sending data to Grafana Cloud](#deploy-otel-collector-sending-data-to-grafana-cloud)
     - [broker](#broker)
     - [availability-service](#availability-service)
     - [business-hub](#business-hub)
@@ -13,6 +18,30 @@
     - [email](#email)
     - [sms](#sms)
     - [k6 load testing](#k6-load-testing)
+
+# Environement variables
+
+Run these as environement variable to be reused in all the commands
+
+```bash
+# grafana cloud employee
+export key=xxxx
+
+#pusher to eu server
+export MIMIR_HOST=https://prometheus-prod-24-prod-eu-west-2.grafana.net
+export MIMIR_URL=${MIMIR_HOST}/api/prom/push
+export MIMIR_USR=xxxx
+export MIMIR_KEY=${key}
+
+export LOKI_HOST=https://logs-prod-012.grafana.net
+export LOKI_URL=${LOKI_HOST}/loki/api/v1/push
+export LOKI_USR=xxxx
+export LOKI_KEY=${key}
+
+export TEMPO_URL=tempo-prod-10-prod-eu-west-2.grafana.net:443
+export TEMPO_USR=xxxx
+export TEMPO_KEY=${key}
+```
 
 # business platform demo
 
@@ -23,13 +52,13 @@ This is a guide to deploy a set of synchronous and asynchronous microservices in
 
 ## run the demo with docker
 
-Optionally create a dedicated network
+### Optionally create a dedicated network
 
 ```bash
 docker network create --driver=bridge --subnet=172.19.0.0/16 --gateway=172.19.0.1 mainnet
 ```
 
-Launch broker
+### Launch broker
 
 ```bash
 docker run --rm -d --net mainnet \
@@ -39,7 +68,7 @@ docker run --rm -d --net mainnet \
 docker stop activemq-artemis
 ```
 
-Launch apps
+### Launch apps
 
 ```bash
 export PROJECT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
@@ -49,7 +78,6 @@ docker run --rm -d --net mainnet \
     -e OTEL_JAVAAGENT_ENABLED="true" \
     --name business-hub alainpham/business-hub:${PROJECT_VERSION}
     
-
 docker run --rm -d --net mainnet \
     -e OTEL_JAVAAGENT_ENABLED="true" \
     --name availability-service alainpham/availability-service:${PROJECT_VERSION}
@@ -70,6 +98,18 @@ docker run --rm -d --net mainnet \
     -e OTEL_RESOURCE_ATTRIBUTES=service.name=sms,service.namespace=sms-ns,service.instance.id=sms-cnt,service.version=${PROJECT_VERSION} \
     --name sms alainpham/message-consumer:${PROJECT_VERSION}
 ```
+
+### Install and launch Grafana Alloy on Linux Host
+
+
+```bash
+
+ARCH="amd64" GCLOUD_HOSTED_METRICS_URL="${MIMIR_URL}" GCLOUD_HOSTED_METRICS_ID="{MIMIR_USR}" GCLOUD_SCRAPE_INTERVAL="60s" GCLOUD_HOSTED_LOGS_URL="${LOKI_URL}" GCLOUD_HOSTED_LOGS_ID="${LOKI_USR}" GCLOUD_RW_API_KEY="${key}" /bin/sh -c "$(curl -fsSL https://storage.googleapis.com/cloud-onboarding/alloy/scripts/install-linux.sh)"
+
+```
+
+Open Telemetry Collector
+
 
 ## run demo on kubernetes
 
@@ -131,7 +171,7 @@ envsubst < /tmp/ingress.yaml | kubectl -n ingress-nginx apply -f -
 
 ```
 
-## Deploy OTEL Collector sending data to Grafana Cloud
+### Deploy OTEL Collector sending data to Grafana Cloud
 ```bash
 export MIMIR_URL=https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push
 export MIMIR_USR=xxxxx
