@@ -58,20 +58,6 @@ loki.write "grafana_cloud_loki" {
   }
 }
 
-// traces write
-otelcol.exporter.otlp "grafana_cloud_tempo" {
-    client {
-        endpoint = "${TEMPO_URL}"
-        auth     = otelcol.auth.basic.grafana_cloud_tempo.handler
-    }
-}
-
-otelcol.auth.basic "grafana_cloud_tempo" {
-    username = "${TEMPO_USR}"
-    password = "${TEMPO_KEY}"
-}
-
-
 // otel receiver
 otelcol.receiver.otlp "default" {
   http {}
@@ -86,12 +72,33 @@ otelcol.receiver.otlp "default" {
 
 otelcol.processor.batch "default" {
   output {
-    metrics = [otelcol.exporter.prometheus.metrics_service.input]
+    metrics = [otelcol.exporter.prometheus.grafana_cloud_prometheus.input]
     logs    = [otelcol.exporter.loki.grafana_cloud_loki.input]
     traces  = [otelcol.exporter.otlp.grafana_cloud_tempo.input]
   }
 }
 
+// otel exporter
+otelcol.exporter.prometheus "grafana_cloud_prometheus" {
+	add_metric_suffixes = false
+	forward_to          = [prometheus.remote_write.metrics_service.receiver]
+}
+
+otelcol.exporter.loki "grafana_cloud_loki" {
+	forward_to = [loki.write.grafana_cloud_loki.receiver]
+}
+
+otelcol.exporter.otlp "grafana_cloud_tempo" {
+    client {
+        endpoint = "${TEMPO_URL}"
+        auth     = otelcol.auth.basic.grafana_cloud_tempo.handler
+    }
+}
+
+otelcol.auth.basic "grafana_cloud_tempo" {
+    username = "${TEMPO_USR}"
+    password = "${TEMPO_KEY}"
+}
 
 //linux integration start
 discovery.relabel "integrations_node_exporter" {

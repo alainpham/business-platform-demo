@@ -1,7 +1,8 @@
 
-- [Environement variables](#environement-variables)
 - [business platform demo](#business-platform-demo)
   - [architecture diagram](#architecture-diagram)
+  - [Env vars](#env-vars)
+  - [Build and push to dockerhub](#build-and-push-to-dockerhub)
   - [run the demo with docker](#run-the-demo-with-docker)
     - [Optionally create a dedicated network](#optionally-create-a-dedicated-network)
     - [Launch broker](#launch-broker)
@@ -10,7 +11,9 @@
   - [run demo on kubernetes](#run-demo-on-kubernetes)
     - [Generate a domain name and wildcard certificates with Letsencrypt](#generate-a-domain-name-and-wildcard-certificates-with-letsencrypt)
     - [Create ingress router](#create-ingress-router)
-    - [Deploy OTEL Collector sending data to Grafana Cloud](#deploy-otel-collector-sending-data-to-grafana-cloud)
+    - [Deploy OTEL Collector sending data to Grafana Cloud (option 1)](#deploy-otel-collector-sending-data-to-grafana-cloud-option-1)
+    - [Deploy Grafana Alloy to send data to Grafana Cloud (option 2)](#deploy-grafana-alloy-to-send-data-to-grafana-cloud-option-2)
+    - [start from scratch](#start-from-scratch)
     - [broker](#broker)
     - [availability-service](#availability-service)
     - [business-hub](#business-hub)
@@ -19,12 +22,25 @@
     - [sms](#sms)
     - [k6 load testing](#k6-load-testing)
 
-# Environement variables
+# business platform demo
 
-Run these as environement variable to be reused in all the commands
+This is a guide to deploy a set of synchronous and asynchronous microservices in spring boot to observed with & Grafana LGTM OSS stack or Grafana Cloud.
 
-```bash
-# grafana cloud employee
+
+## architecture diagram
+![alt text](graphics/architecture.png)
+
+## Env vars
+
+```bash 
+export MAIN_PROJECT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+export ACTIVEMQ_ARTEMIS_VERSION=2.33.0
+export OTELCOL_VERSION=0.96.0
+export K6_VERSION=0.50.0
+export KUBE_INGRESS_ROOT_DOMAIN=gkube.duckdns.org
+
+
+# grafana cloud key
 export key=xxxx
 
 #pusher to eu server
@@ -41,14 +57,28 @@ export LOKI_KEY=${key}
 export TEMPO_URL=tempo-prod-10-prod-eu-west-2.grafana.net:443
 export TEMPO_USR=xxxx
 export TEMPO_KEY=${key}
+
+# https://github.com/infinityofspace/certbot_dns_duckdns
+export CERTBOT_DUCKDNS_VERSION=v1.3
+export DUCKDNS_TOKEN=xxxx-xxxx-xxx-xxx-xxxxx
+export EMAIL=xxx@yyy.com
+export WILDCARD_DOMAIN=yourowndomain.duckdns.org
+
+# https://github.com/kubernetes/ingress-nginx/blob/main/deploy/static/provider/baremetal/deploy.yaml
+export NGINX_INGRESS_VERSION=1.10.1
+export NGINX_INGRESS_KUBE_WEBHOOK_CERTGEN_VERSION=v1.4.1
 ```
 
-# business platform demo
+## Build and push to dockerhub
 
-This is a guide to deploy a set of synchronous and asynchronous microservices in spring boot to observed with & Grafana LGTM OSS stack or Grafana Cloud.
+```bash
+mvn package
+mvn exec:exec@buildpush -f business-hub/pom.xml
+mvn exec:exec@buildpush -f availability-service/pom.xml
+mvn exec:exec@buildpush -f message-consumer/pom.xml
 
-## architecture diagram
-![alt text](graphics/architecture.png)
+```
+
 
 ## run the demo with docker
 
@@ -63,7 +93,7 @@ docker network create --driver=bridge --subnet=172.19.0.0/16 --gateway=172.19.0.
 ```bash
 docker run --rm -d --net mainnet \
     -e ANONYMOUS_LOGIN=true \
-    --name activemq-artemis -p 61616:61616 -p 8161:8161 apache/activemq-artemis:2.32.0
+    --name activemq-artemis -p 61616:61616 -p 8161:8161 apache/activemq-artemis:${ACTIVEMQ_ARTEMIS_VERSION}
   
 docker stop activemq-artemis
 ```
@@ -71,7 +101,7 @@ docker stop activemq-artemis
 ### Launch apps
 
 ```bash
-export PROJECT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+export PROJECT_VERSION=${MAIN_PROJECT_VERSION}
 
 docker run --rm -d --net mainnet \
     -p 8080:8080 \
@@ -103,13 +133,9 @@ docker run --rm -d --net mainnet \
 
 
 ```bash
-
 ARCH="amd64" GCLOUD_HOSTED_METRICS_URL="${MIMIR_URL}" GCLOUD_HOSTED_METRICS_ID="{MIMIR_USR}" GCLOUD_SCRAPE_INTERVAL="60s" GCLOUD_HOSTED_LOGS_URL="${LOKI_URL}" GCLOUD_HOSTED_LOGS_ID="${LOKI_USR}" GCLOUD_RW_API_KEY="${key}" /bin/sh -c "$(curl -fsSL https://storage.googleapis.com/cloud-onboarding/alloy/scripts/install-linux.sh)"
 
 ```
-
-Open Telemetry Collector
-
 
 ## run demo on kubernetes
 
@@ -128,12 +154,6 @@ Go to duckdns.org and create a domain name as in yourowndomain.duckdns.org. You 
 All applications deployed on kube will be accessible with an url like appname.yourowndomain.duckdns.org
 
 ```bash
-# https://github.com/infinityofspace/certbot_dns_duckdns
-export CERTBOT_DUCKDNS_VERSION=v1.3
-export DUCKDNS_TOKEN=xxxx-xxxx-xxx-xxx-xxxxx
-export EMAIL=xxx@yyy.com
-export WILDCARD_DOMAIN=yourowndomain.duckdns.org
-
 docker run -v "$(pwd)/sensitive/letsencrypt/data:/etc/letsencrypt" -v "$(pwd)/sensitive/letsencrypt/logs:/var/log/letsencrypt" infinityofspace/certbot_dns_duckdns:${CERTBOT_DUCKDNS_VERSION} \
    certonly \
      --non-interactive \
@@ -155,11 +175,6 @@ kubectl create ns ingress-nginx
 
 kubectl -n ingress-nginx create  secret tls nginx-ingress-tls  --key="$(pwd)/sensitive/letsencrypt/data/live/$WILDCARD_DOMAIN/privkey.pem"   --cert="$(pwd)/sensitive/letsencrypt/data/live/$WILDCARD_DOMAIN/fullchain.pem"  --dry-run=client -o yaml | kubectl apply -f -
 
-
-# https://github.com/kubernetes/ingress-nginx/blob/main/deploy/static/provider/baremetal/deploy.yaml
-export NGINX_INGRESS_VERSION=1.10.0
-export NGINX_INGRESS_KUBE_WEBHOOK_CERTGEN_VERSION=v1.4.0
-
 #ingress with LoadBalancer
 wget -O /tmp/ingresslb.yaml https://raw.githubusercontent.com/alainpham/dev-environment/master/workstation-installation/templates/ingress-loadbalancer-notoleration.yaml
 envsubst < /tmp/ingresslb.yaml | kubectl -n ingress-nginx apply -f -
@@ -171,23 +186,12 @@ envsubst < /tmp/ingress.yaml | kubectl -n ingress-nginx apply -f -
 
 ```
 
-### Deploy OTEL Collector sending data to Grafana Cloud
+### Deploy OTEL Collector sending data to Grafana Cloud (option 1)
 ```bash
-export MIMIR_URL=https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push
-export MIMIR_USR=xxxxx
-export MIMIR_KEY=xxxxx
-
-export LOKI_URL=https://logs-prod-eu-west-0.grafana.net/loki/api/v1/push
-export LOKI_USR=xxxxx
-export LOKI_KEY=xxxxx
-
-export TEMPO_URL=tempo-eu-west-0.grafana.net:443
-export TEMPO_USR=xxxxx
-export TEMPO_KEY=xxxxx
 
 export CONTAINER_REGISTRY=otel
 export PROJECT_ARTIFACTID=opentelemetry-collector-contrib
-export PROJECT_VERSION=0.96.0
+export PROJECT_VERSION=${OTELCOL_VERSION}
 
 kubectl create ns agents
 
@@ -195,13 +199,86 @@ wget -O /tmp/otelcol.yaml https://raw.githubusercontent.com/alainpham/business-p
 envsubst < /tmp/otelcol.yaml | kubectl -n agents apply -f -
 ```
 
+### Deploy Grafana Alloy to send data to Grafana Cloud (option 2)
+
+```bash
+helm repo add grafana https://grafana.github.io/helm-charts &&
+  helm repo update &&
+  helm upgrade --install --atomic --timeout 300s grafana-k8s-monitoring grafana/k8s-monitoring \
+    --namespace "agents" --create-namespace --values - <<EOF
+cluster:
+  name: gkube
+externalServices:
+  prometheus:
+    host: "${MIMIR_HOST}"
+    basicAuth:
+      username: "${MIMIR_USR}"
+      password: "${MIMIR_KEY}"
+  loki:
+    host: "${LOKI_HOST}"
+    basicAuth:
+      username: "${LOKI_USR}"
+      password: "${LOKI_KEY}"
+  tempo:
+    host: "${TEMPO_URL}"
+    basicAuth:
+      username: "${TEMPO_USR}"
+      password: "${TEMPO_KEY}"
+metrics:
+  enabled: true
+  cost:
+    enabled: true
+  node-exporter:
+    enabled: true
+logs:
+  enabled: true
+  pod_logs:
+    enabled: true
+  cluster_events:
+    enabled: true
+traces:
+  enabled: true
+receivers:
+  grpc:
+    enabled: true
+  http:
+    enabled: true
+  zipkin:
+    enabled: true
+opencost:
+  enabled: true
+  opencost:
+    exporter:
+      defaultClusterId: gkube
+    prometheus:
+      external:
+        url: "${MIMIR_HOST}/api/prom"
+kube-state-metrics:
+  enabled: true
+prometheus-node-exporter:
+  enabled: true
+prometheus-operator-crds:
+  enabled: true
+alloy: {}
+alloy-events: {}
+alloy-logs: {}
+EOF
+```
+
+### start from scratch
+
+```
+kubectl delete namespace business-platform
+kubectl create ns business-platform
+
+```
+
 ### broker
 
 ```bash
-export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
 export CONTAINER_REGISTRY=apache
 export PROJECT_ARTIFACTID=activemq-artemis
-export PROJECT_VERSION=2.32.0
+export PROJECT_VERSION=${ACTIVEMQ_ARTEMIS_VERSION}
 
 kubectl create ns business-platform
 
@@ -214,10 +291,10 @@ envsubst < /tmp/broker.yaml | kubectl delete -n business-platform -f -
 ### availability-service
 
 ```bash
-export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
 export PROJECT_ARTIFACTID=availability-service
-export PROJECT_VERSION=1.0-SNAPSHOT
 export CONTAINER_REGISTRY=alainpham
+export PROJECT_VERSION=${MAIN_PROJECT_VERSION}
+
 
 wget -O /tmp/availability-service.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/availability-service/src/main/kube/deploy.envsubst.yaml
 envsubst < /tmp/availability-service.yaml | kubectl apply -n business-platform -f -
@@ -228,10 +305,9 @@ envsubst < /tmp/availability-service.yaml | kubectl delete -n business-platform 
 ### business-hub
 
 ```bash
-export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
 export PROJECT_ARTIFACTID=business-hub
-export PROJECT_VERSION=1.0-SNAPSHOT
 export CONTAINER_REGISTRY=alainpham
+export PROJECT_VERSION=${MAIN_PROJECT_VERSION}
 
 wget -O /tmp/business-hub.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/business-hub/src/main/kube/deploy.envsubst.yaml
 envsubst < /tmp/business-hub.yaml | kubectl apply -n business-platform  -f -
@@ -242,10 +318,9 @@ envsubst < /tmp/business-hub.yaml | kubectl delete -n business-platform  -f -
 ### notification-service
 
 ```bash
-export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
 export PROJECT_ARTIFACTID=notification-service
-export PROJECT_VERSION=1.0-SNAPSHOT
 export CONTAINER_REGISTRY=alainpham
+export PROJECT_VERSION=${MAIN_PROJECT_VERSION}
 
 wget -O /tmp/notification-service.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/notification-service/src/main/kube/deploy.envsubst.yaml
 envsubst < /tmp/notification-service.yaml | kubectl apply -n business-platform  -f -
@@ -256,11 +331,10 @@ envsubst < /tmp/notification-service.yaml | kubectl delete -n business-platform 
 ### email
 
 ```bash
-export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
 export PROJECT_ARTIFACTID=message-consumer
 export APPLICATION_NAME=email
-export PROJECT_VERSION=1.0-SNAPSHOT
 export CONTAINER_REGISTRY=alainpham
+export PROJECT_VERSION=${MAIN_PROJECT_VERSION}
 
 wget -O /tmp/message-consumer.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/message-consumer/src/main/kube/deploy.envsubst.yaml
 envsubst < /tmp/message-consumer.yaml | kubectl apply -n business-platform  -f -
@@ -271,11 +345,10 @@ envsubst < /tmp/message-consumer.yaml | kubectl delete -n business-platform  -f 
 ### sms
 
 ```bash
-export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
 export PROJECT_ARTIFACTID=message-consumer
 export APPLICATION_NAME=sms
-export PROJECT_VERSION=1.0-SNAPSHOT
 export CONTAINER_REGISTRY=alainpham
+export PROJECT_VERSION=${MAIN_PROJECT_VERSION}
 
 wget -O /tmp/message-consumer.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/message-consumer/src/main/kube/deploy.envsubst.yaml
 envsubst < /tmp/message-consumer.yaml | kubectl apply -n business-platform  -f -
@@ -286,11 +359,10 @@ envsubst < /tmp/message-consumer.yaml | kubectl delete -n business-platform  -f 
 ### k6 load testing
 
 ```bash
-export KUBE_INGRESS_ROOT_DOMAIN=yourowndomain.duckdns.org
 export CONTAINER_REGISTRY=grafana
 export PROJECT_ARTIFACTID=k6
-export PROJECT_VERSION=0.49.0
-export BASE_URL=https://business-hub.yourowndomain.duckdns.org
+export PROJECT_VERSION=${K6_VERSION}
+export BASE_URL=https://business-hub.${KUBE_INGRESS_ROOT_DOMAIN}
 
 wget -O /tmp/k6.yaml https://raw.githubusercontent.com/alainpham/business-platform-demo/master/k6/k6.yaml
 envsubst < /tmp/k6.yaml | kubectl apply -n business-platform  -f -
