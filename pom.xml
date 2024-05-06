@@ -8,7 +8,7 @@
   <version>${revision}</version>
   <packaging>pom</packaging>
   <properties>
-    <revision>1.1-SNAPSHOT</revision>
+    <revision>1.1.1</revision>
     <camel.version>4.4.2</camel.version>
     <spring.boot.version>3.2.5</spring.boot.version>
     <swagger.codegen.version>3.0.55</swagger.codegen.version>

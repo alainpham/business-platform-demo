@@ -18,6 +18,36 @@
     <!-- script to lauch before for theme lading -->
     <script src="js/head.js"></script>
 
+    <!-- FARO -->
+    <!-- Paste the following snippet in the head element of your page or pages. -->
+    <script>
+        (function () {
+        // Create a script tag for loading the library
+        var script = document.createElement("script");
+    
+        // Initialize the Web-SDK at the onLoad event of the script tag above so it will be called when the library is loaded.
+        script.onload = () => {
+            window.GrafanaFaroWebSdk.initializeFaro({
+            // Mandatory, the URL of the Grafana Cloud collector with embedded application key.
+            url: 'https://faro-collector-prod-eu-west-2.grafana.net/collect/5643b6bc946a87014ae44e145b916eee',
+    
+            // Mandatory, the identification label(s) of your application
+            app: {
+                name: 'business-hub-frontend',
+                version: "1.1.1",
+            },
+            
+            });
+        };
+    
+        // Set the source of the script tag to the CDN
+        script.src =
+            "https://unpkg.com/@grafana/faro-web-sdk@^1.4.0/dist/bundle/faro-web-sdk.iife.js";
+    
+        // Append the script tag to the head of the HTML page
+        document.head.appendChild(script);
+        })();
+    </script>
 </head>
 
 <body>
@@ -29,43 +59,27 @@
             <h1>business-hub interface</h1>
         </div>
         <div class="flex-container">
-            <div class="flex-item " >
+            <div class="flex-item" >
                 <form id="data-form" class="flex-container-col">
-                    <label>Id</label>
-                    <input type="text" id="id" value="xx" placeholder="Id">
-                    <label>Name</label>
-                    <input type="text" id="name" value="John" placeholder="Your name">
-                    <label>First Name</label>
-                    <input type="text" id="firstName" value="Doe" placeholder="Your first name">
-                    <label>Your vote</label>
-                    <select id="vote">
-                        <option value="yes">Yes</option>
-                        <option value="no">No</option>
-                    </select>
-                    <label>Message content</label>
-                    <textarea id="text-area"></textarea>
+                    <input type="text" id="id" value="0" placeholder="Id" hidden="true">
+                    <label for="customerName">Customer Name:</label><br>
+                    <input type="text" id="customerName" name="customerName" value="John Doe"><br>
+                  
+                    <label for="bookingStartDate">Booking Start Date:</label><br>
+                    <input type="date" id="bookingStartDate" name="bookingStartDate" value="2023-12-10"><br>
+                  
+                    <label for="bookingEndDate">Booking End Date:</label><br>
+                    <input type="date" id="bookingEndDate" name="bookingEndDate" value="2023-12-15"><br>
+                  
+                    <label for="hotel">Hotel:</label><br>
+                    <input type="text" id="hotel" name="hotel" value="accor"><br>
+                  
+                    <label for="room">Room:</label><br>
+                    <input type="text" id="room" name="room" value="3"><br>
+                  
                 </form>
                 <button  id="send-button"
-                    onclick="backEndRequest(null,'/send-msg','post', formDataToJson('data-form'))">send</button>
-            </div>
-            <div class="flex-item flex-grow">
-                <div   class="flex-container">
-                    <h2  >State Table</h2>
-                    <button onclick="clearTable('state-table')">clear</button>
-                    <button onclick="processSocketMsg(exampleStateEvent)">populate state example</button>
-                </div>
-                <table id="state-table"></table>
-            </div>
-        </div>
-        <div class="flex-container">
-            <div class="flex-item flex-grow flex-container-col">
-                <div class="flex-container">
-                    <h2>Log messages</h2>
-                    <button onclick="clearTable('log-table')">clear</button>
-                    <button onclick="processSocketMsg(exampleEvent)">populate example</button>
-                </div>
-                <table id="log-table">
-                </table>
+                    onclick="backEndRequest('messages','/book-from-front','post', formDataToJson('data-form'))">book</button>
             </div>
             <div class="flex-item flex-grow">
                 <h2>Last message</h2>

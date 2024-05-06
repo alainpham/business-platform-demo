@@ -75,6 +75,7 @@ export NGINX_INGRESS_KUBE_WEBHOOK_CERTGEN_VERSION=v1.4.1
 mvn package
 mvn exec:exec@buildpush -f business-hub/pom.xml
 mvn exec:exec@buildpush -f availability-service/pom.xml
+mvn exec:exec@buildpush -f notification-service/pom.xml
 mvn exec:exec@buildpush -f message-consumer/pom.xml
 
 ```

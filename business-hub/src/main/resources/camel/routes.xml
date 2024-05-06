@@ -10,6 +10,18 @@
         </setBody>
     </route>
 
+    <route id="book-from-front">
+        <from id="send-socket-msg-to-all-starter" uri="platform-http:/book-from-front"/>
+        <unmarshal>
+            <json library="Jackson" unmarshalType="demo.model.Booking" />
+        </unmarshal>
+        <log message="${body}" />
+        <bean ref="bookingService" method="book"/>
+        <marshal>
+            <json library="Jackson" prettyPrint="true"/>
+        </marshal>
+    </route>
+
     <route id="send-msg">
         <from id="send-socket-msg-to-all-starter" uri="platform-http:/send-msg"/>
         <convertBodyTo type="java.lang.String"/>
